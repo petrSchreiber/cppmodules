@@ -144,63 +144,62 @@ def run(args):
 ##############################################################################
 # MAIN
 ##############################################################################
+if __name__ == "__main__":
+  # parse all command-line options
+  # - separationg files (having a dot inside)
+  # - from compiler/linker options (the rest)
+  files = []
+  flags = []
+  compileOnly = False
+  for opt in sys.argv[1:]:
+    #print(opt)
+    if (opt == "-debug"):
+      debug = True
+      continue
+    if (opt == "/c"):
+      compileOnly = False
+      continue
+    if opt.startswith("/"):
+      flags.append(opt)
+      continue
+    if "." in opt:
+      files.append(opt)
+    else:
+      flags.append(opt)
 
-# parse all command-line options
-# - separationg files (having a dot inside)
-# - from compiler/linker options (the rest)
-files = []
-flags = []
-compileOnly = False
-for opt in sys.argv[1:]:
-  #print(opt)
-  if (opt == "-debug"):
-    debug = True
-    continue
-  if (opt == "/c"):
-    compileOnly = False
-    continue
-  if opt.startswith("/"):
-    flags.append(opt)
-    continue
-  if "." in opt:
-    files.append(opt)
-  else:
-    flags.append(opt)
+  #print("files: ", files)
+  #print("flags: ", flags)
 
-#print("files: ", files)
-#print("flags: ", flags)
+  # iterate over all files
+  # - checking the unit type
+  #   - traditional non-module translation unit or
+  #   - one of the module unit types
+  # - compile each file accordingly
+  print("COMPILE:")
+  objfiles = []
+  for filename in files:
+    print("\n*** COMPILE '" + filename + "'")
+    m = re.search("^(.*)\.([^.]*)$", filename)
+    if not m:
+      print("*** ERROR: file", filename, "has no suffix")
+      sys.exit(1)
+    fileopt = getModulesOpt(filename)
+    # compile code:
+    print("*** cl ", " ".join(flags), "/TP", "/c", fileopt, filename)
+    if not fileopt or fileopt == "":
+      p = run(["cl"] + flags + ["/TP", "/c", filename])
+    else:
+      p = run(["cl"] + flags + ["/TP", "/c", fileopt, filename])
+    if p.returncode != 0:
+      print("*** ERROR: compiling", filename, "failed")
+      sys.exit(1)
+    objfiles.append(m.group(1) + ".obj")
 
-# iterate over all files
-# - checking the unit type
-#   - traditional non-module translation unit or
-#   - one of the module unit types
-# - compile each file accordingly
-print("COMPILE:")
-objfiles = []
-for filename in files:
-  print("\n*** COMPILE '" + filename + "'")
-  m = re.search("^(.*)\.([^.]*)$", filename)
-  if not m:
-    print("*** ERROR: file", filename, "has no suffix")
-    sys.exit(1)
-  fileopt = getModulesOpt(filename)
-  # compile code:
-  print("*** cl ", " ".join(flags), "/TP", "/c", fileopt, filename)
-  if not fileopt or fileopt == "":
-    p = run(["cl"] + flags + ["/TP", "/c", filename])
-  else:
-    p = run(["cl"] + flags + ["/TP", "/c", fileopt, filename])
-  if p.returncode != 0:
-    print("*** ERROR: compiling", filename, "failed")
-    sys.exit(1)
-  objfiles.append(m.group(1) + ".obj")
-
-# link generated object files
-if not compileOnly:
-  print("\n*** LINK:")
-  print("*** cl ", " ".join(flags), " ".join(objfiles))
-  p = run(["cl"] + flags + objfiles)
-  if p.returncode != 0:
-    print("*** ERROR: linking failed")
-    sys.exit(1)
-
+  # link generated object files
+  if not compileOnly:
+    print("\n*** LINK:")
+    print("*** cl ", " ".join(flags), " ".join(objfiles))
+    p = run(["cl"] + flags + objfiles)
+    if p.returncode != 0:
+      print("*** ERROR: linking failed")
+      sys.exit(1)
